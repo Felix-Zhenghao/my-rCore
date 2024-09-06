@@ -1,3 +1,6 @@
+// This will generate link_app.S while running make run in os/
+// link_app.S will put .bin mirror of users' applications in .data section and mark the start/end points of all apps
+
 use std::fs::{read_dir, File};
 use std::io::{Result, Write};
 

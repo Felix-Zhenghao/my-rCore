@@ -1,3 +1,6 @@
+# Trap 处理的总体流程如下：首先通过 __alltraps 将 Trap 上下文保存在内核栈上，然后跳转到使用 Rust 编写的 trap_handler 函数完成 Trap 分发及处理。
+# 当 trap_handler 返回之后，使用 __restore 从保存在内核栈上的 Trap 上下文恢复寄存器。最后通过一条 sret 指令回到应用程序执行。
+
 .altmacro
 .macro SAVE_GP n
     sd x\n, \n*8(sp)
@@ -10,10 +13,10 @@
     .globl __restore
     .align 2
 __alltraps:
-    csrrw sp, sscratch, sp
+    csrrw sp, sscratch, sp # csrrw rd,csr,rs 可以将 CSR 当前的值读到通用寄存器 rd 中，然后将通用寄存器 rs 的值写入该 CSR。这里，交换sscratch和sp。
     # now sp->kernel stack, sscratch->user stack
     # allocate a TrapContext on kernel stack
-    addi sp, sp, -34*8
+    addi sp, sp, -34*8 # sp已经指向内核栈，所以移动sp是在分配内核栈的空间。
     # save general-purpose registers
     sd x1, 1*8(sp)
     # skip sp(x2), we will save it later
@@ -33,7 +36,7 @@ __alltraps:
     # read user stack from sscratch and save it on the kernel stack
     csrr t2, sscratch
     sd t2, 2*8(sp)
-    # set input argument of trap_handler(cx: &mut TrapContext)
+    # set input argument of trap_handler(cx: &mut TrapContext)。调用规范要求参数在a0里。
     mv a0, sp
     call trap_handler
 

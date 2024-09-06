@@ -9,6 +9,7 @@ use core::cell::{RefCell, RefMut};
 ///
 /// In order to get mutable reference of inner data, call
 /// `exclusive_access`.
+/// We need this wrapper because RefCell can't be recognized by the compiler as safe to share between threads.
 pub struct UPSafeCell<T> {
     /// inner data
     inner: RefCell<T>,

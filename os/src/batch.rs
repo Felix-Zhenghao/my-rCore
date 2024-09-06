@@ -43,11 +43,17 @@ impl KernelStack {
 }
 
 impl UserStack {
+    // 用户栈的栈顶地址，从而方便在切换到用户态时设置 satp 寄存器 以 换栈
     fn get_sp(&self) -> usize {
         self.data.as_ptr() as usize + USER_STACK_SIZE
     }
 }
 
+// 应用管理器需要保存和维护的信息都在 AppManager 里面。这样设计的原因在于：我们希望将 AppManager 实例化为一个全局变量，使得任何函数都可以直接访问。
+// 但是里面的 current_app 字段表示当前执行的是第几个应用，它是一个可修改的变量，会在系统运行期间发生变化。
+// 因此在声明全局变量的时候，采用 static mut 是一种比较简单自然的方法。但是在 Rust 中，任何对于 static mut 变量的访问控制都是 unsafe 的，而我们要在编程中尽量避免使用 unsafe ，这样才能让编译器负责更多的安全性检查。
+// 因此，我们需要考虑如何在尽量避免触及 unsafe 的情况下仍能声明并使用可变的全局变量。
+// 将在src/sync/up.rs中使用RefCell实现内部可变性，从而声明static而非static mut。
 struct AppManager {
     num_app: usize,
     current_app: usize,
@@ -67,6 +73,7 @@ impl AppManager {
         }
     }
 
+    /// 负责将参数 app_id 对应的应用程序的二进制镜像加载到物理内存以 0x80400000 起始的位置
     unsafe fn load_app(&self, app_id: usize) {
         if app_id >= self.num_app {
             println!("All applications completed!");
@@ -99,6 +106,7 @@ impl AppManager {
     }
 }
 
+// lazy_static! 宏提供了全局变量的运行时初始化功能。
 lazy_static! {
     static ref APP_MANAGER: UPSafeCell<AppManager> = unsafe {
         UPSafeCell::new({
